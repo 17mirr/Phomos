@@ -1,0 +1,5 @@
+fastapi==0.115.0
+uvicorn==0.30.6
+yfinance==0.2.43
+pandas==2.2.2
+httpx==0.27.2

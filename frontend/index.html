@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>PRIMESCREEN — PE Growth Engine</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  :root {
+    --bg: #0a0a0a;
+    --bg2: #111111;
+    --bg3: #181818;
+    --border: rgba(255,255,255,0.08);
+    --border2: rgba(255,255,255,0.14);
+    --text: #e8e6e0;
+    --muted: #666660;
+    --muted2: #444440;
+    --green: #1D9E75;
+    --green-light: #5DCAA5;
+    --amber: #EF9F27;
+    --red: #E24B4A;
+    --blue: #378ADD;
+    --mono: 'Courier New', 'Lucida Console', monospace;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: var(--mono); font-size: 13px; min-height: 100vh; }
+
+  /* TOPBAR */
+  .topbar { display: flex; align-items: center; justify-content: space-between; padding: 14px 24px; border-bottom: 0.5px solid var(--border); background: var(--bg); }
+  .logo { font-size: 18px; letter-spacing: 4px; color: var(--text); }
+  .logo span { color: var(--green); }
+  .topbar-right { display: flex; align-items: center; gap: 20px; font-size: 11px; color: var(--muted); letter-spacing: 1px; }
+  .live-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--green); display: inline-block; margin-right: 5px; animation: blink 2s infinite; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:.2} }
+  .timestamp { color: var(--muted); }
+
+  /* LAYOUT */
+  .main { padding: 20px 24px; max-width: 1400px; margin: 0 auto; }
+
+  /* KPI ROW */
+  .kpi-row { display: grid; grid-template-columns: repeat(6, minmax(0,1fr)); gap: 8px; margin-bottom: 18px; }
+  .kpi { background: var(--bg2); border: 0.5px solid var(--border); border-radius: 6px; padding: 12px 14px; }
+  .kpi-label { font-size: 9px; color: var(--muted); letter-spacing: 1.5px; margin-bottom: 6px; }
+  .kpi-val { font-size: 24px; font-weight: bold; }
+  .kpi-val.green { color: var(--green); }
+  .kpi-val.amber { color: var(--amber); }
+  .kpi-val.blue { color: var(--blue); }
+  .kpi-val.red { color: var(--red); }
+  .kpi-val.white { color: var(--text); }
+  .kpi-sub { font-size: 9px; color: var(--muted); margin-top: 3px; letter-spacing: .5px; }
+
+  /* CONTROLS */
+  .controls { display: flex; flex-wrap: wrap; gap: 10px; align-items: flex-end; margin-bottom: 18px; padding: 14px 16px; background: var(--bg2); border: 0.5px solid var(--border); border-radius: 6px; }
+  .ctrl-group { display: flex; flex-direction: column; gap: 4px; }
+  .ctrl-label { font-size: 9px; color: var(--muted); letter-spacing: 1.5px; }
+  select, input[type=number] { font-family: var(--mono); font-size: 12px; padding: 6px 8px; height: 32px; border-radius: 4px; border: 0.5px solid var(--border2); background: var(--bg3); color: var(--text); min-width: 105px; outline: none; }
+  select:focus, input:focus { border-color: var(--green); }
+  .mkt-toggle { display: flex; }
+  .mkt-btn { height: 32px; padding: 0 14px; border: 0.5px solid var(--border2); background: transparent; color: var(--muted); font-family: var(--mono); font-size: 11px; cursor: pointer; letter-spacing: .5px; transition: all .15s; }
+  .mkt-btn:first-child { border-radius: 4px 0 0 4px; }
+  .mkt-btn:last-child { border-radius: 0 4px 4px 0; }
+  .mkt-btn.active { background: var(--green); color: #000; border-color: var(--green); font-weight: bold; }
+  .run-btn { height: 32px; padding: 0 20px; border-radius: 4px; border: 0.5px solid var(--green); background: var(--green); color: #000; font-family: var(--mono); font-size: 12px; font-weight: bold; cursor: pointer; letter-spacing: 1px; transition: opacity .15s; }
+  .run-btn:hover { opacity: .8; }
+  .run-btn:disabled { opacity: .4; cursor: not-allowed; }
+
+  /* CHARTS */
+  .chart-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; margin-bottom: 18px; }
+  .chart-box { background: var(--bg2); border: 0.5px solid var(--border); border-radius: 6px; padding: 14px 16px; }
+  .chart-title { font-size: 9px; color: var(--muted); letter-spacing: 1.5px; margin-bottom: 12px; }
+  .sector-row { display: flex; align-items: center; gap: 10px; padding: 5px 0; border-bottom: 0.5px solid var(--border); }
+  .sector-row:last-child { border-bottom: none; }
+  .sector-name { font-size: 10px; color: var(--muted); width: 120px; flex-shrink: 0; }
+  .sector-bar-bg { flex: 1; height: 4px; background: var(--bg3); border-radius: 2px; }
+  .sector-bar-fill { height: 4px; border-radius: 2px; transition: width .4s ease; }
+  .sector-val { font-size: 11px; font-weight: bold; min-width: 42px; text-align: right; }
+
+  /* TABLE */
+  .table-wrap { background: var(--bg2); border: 0.5px solid var(--border); border-radius: 6px; overflow: hidden; margin-bottom: 12px; overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; min-width: 820px; }
+  thead { background: var(--bg3); }
+  th { padding: 10px 12px; text-align: left; font-size: 9px; color: var(--muted); letter-spacing: 1.2px; border-bottom: 0.5px solid var(--border); font-weight: normal; white-space: nowrap; }
+  td { padding: 9px 12px; border-bottom: 0.5px solid var(--border); vertical-align: middle; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: var(--bg3); }
+  .ticker { font-weight: bold; font-size: 12px; letter-spacing: .5px; color: var(--text); }
+  .name-sub { font-size: 10px; color: var(--muted); margin-top: 1px; }
+  .mkt-badge { display: inline-block; padding: 2px 7px; border-radius: 3px; font-size: 9px; letter-spacing: 1px; font-weight: bold; }
+  .mkt-badge.us { background: rgba(55,138,221,0.15); color: var(--blue); border: 0.5px solid rgba(55,138,221,0.3); }
+  .mkt-badge.pl { background: rgba(29,158,117,0.12); color: var(--green-light); border: 0.5px solid rgba(29,158,117,0.3); }
+  .sig-badge { display: inline-block; padding: 2px 8px; border-radius: 3px; font-size: 9px; font-weight: bold; letter-spacing: .8px; }
+  .sig-badge.strong { background: rgba(29,158,117,0.15); color: var(--green); border: 0.5px solid rgba(29,158,117,0.3); }
+  .sig-badge.watch { background: rgba(239,159,39,0.15); color: var(--amber); border: 0.5px solid rgba(239,159,39,0.3); }
+  .sig-badge.pass { background: rgba(226,75,74,0.1); color: var(--red); border: 0.5px solid rgba(226,75,74,0.2); }
+  .val-up { color: var(--green); font-weight: bold; }
+  .val-dn { color: var(--red); font-weight: bold; }
+  .val-flat { color: var(--muted); }
+  .gain-wrap { display: flex; align-items: center; gap: 8px; }
+  .gain-bar-bg { width: 50px; height: 3px; background: var(--bg3); border-radius: 2px; }
+  .gain-bar-fill { height: 3px; border-radius: 2px; }
+  .na { color: var(--muted2); font-size: 11px; }
+
+  /* LOADING / ERROR */
+  .loading-state { text-align: center; padding: 60px 20px; color: var(--muted); }
+  .loading-state .spinner { font-size: 28px; animation: spin 1s linear infinite; display: inline-block; margin-bottom: 12px; }
+  @keyframes spin { from{transform:rotate(0deg)} to{transform:rotate(360deg)} }
+  .error-state { background: rgba(226,75,74,0.08); border: 0.5px solid rgba(226,75,74,0.3); border-radius: 6px; padding: 16px 20px; color: var(--red); margin-bottom: 18px; font-size: 12px; }
+
+  .footer { font-size: 9px; color: var(--muted2); letter-spacing: .8px; padding-top: 10px; border-top: 0.5px solid var(--border); }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <div class="logo">PRIME<span>SCREEN</span></div>
+  <div class="topbar-right">
+    <span><span class="live-dot"></span>LIVE · YAHOO FINANCE</span>
+    <span class="timestamp" id="ts">—</span>
+    <span>US + GPW POLAND</span>
+  </div>
+</div>
+
+<div class="main">
+
+  <div class="kpi-row">
+    <div class="kpi"><div class="kpi-label">UNIVERSE</div><div class="kpi-val white" id="kTotal">—</div><div class="kpi-sub">stocks tracked</div></div>
+    <div class="kpi"><div class="kpi-label">WITH DATA</div><div class="kpi-val blue" id="kData">—</div><div class="kpi-sub">live feed ok</div></div>
+    <div class="kpi"><div class="kpi-label">PASSED</div><div class="kpi-val green" id="kPassed">—</div><div class="kpi-sub">meet criteria</div></div>
+    <div class="kpi"><div class="kpi-label">AVG REV GROWTH</div><div class="kpi-val green" id="kGrowth">—</div><div class="kpi-sub">filtered set</div></div>
+    <div class="kpi"><div class="kpi-label">AVG SHARE GAIN</div><div class="kpi-val amber" id="kShare">—</div><div class="kpi-sub">vs sector median</div></div>
+    <div class="kpi"><div class="kpi-label">STRONG BUYS</div><div class="kpi-val green" id="kStrong">—</div><div class="kpi-sub">high conviction</div></div>
+  </div>
+
+  <div class="controls">
+    <div class="ctrl-group">
+      <div class="ctrl-label">MARKET</div>
+      <div class="mkt-toggle">
+        <button class="mkt-btn active" onclick="setMkt('all',this)">ALL</button>
+        <button class="mkt-btn" onclick="setMkt('US',this)">US</button>
+        <button class="mkt-btn" onclick="setMkt('PL',this)">GPW</button>
+      </div>
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">SECTOR</div>
+      <select id="secFilter">
+        <option value="all">ALL SECTORS</option>
+        <option value="Technology">TECHNOLOGY</option>
+        <option value="Healthcare">HEALTHCARE</option>
+        <option value="Consumer">CONSUMER</option>
+        <option value="Industrials">INDUSTRIALS</option>
+        <option value="Energy">ENERGY</option>
+        <option value="Financials">FINANCIALS</option>
+        <option value="Retail">RETAIL</option>
+      </select>
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">MIN REV GROWTH %</div>
+      <input type="number" id="minG" value="10" min="0" max="500" style="width:95px">
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">MIN SHARE GAIN PP</div>
+      <input type="number" id="minS" value="0" min="-100" max="500" step="1" style="width:95px">
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">MAX CAP $B</div>
+      <input type="number" id="maxC" value="10" min="0" max="500" style="width:80px">
+    </div>
+    <div class="ctrl-group">
+      <div class="ctrl-label">&nbsp;</div>
+      <button class="run-btn" id="runBtn" onclick="fetchAndRender()">▶ REFRESH LIVE DATA</button>
+    </div>
+  </div>
+
+  <div id="errorBox" style="display:none" class="error-state"></div>
+
+  <div class="chart-row">
+    <div class="chart-box">
+      <div class="chart-title">SECTOR SHARE GAIN — AVG PP VS MEDIAN</div>
+      <div id="sectorChart"><div style="color:var(--muted);font-size:11px">Loading...</div></div>
+    </div>
+    <div class="chart-box">
+      <div class="chart-title">SIGNAL DISTRIBUTION</div>
+      <div style="position:relative;height:160px">
+        <canvas id="distChart" role="img" aria-label="Signal distribution: strong buy, watch, pass counts">Loading...</canvas>
+      </div>
+    </div>
+  </div>
+
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th style="width:155px">COMPANY</th>
+          <th style="width:52px">MKT</th>
+          <th style="width:100px">SECTOR</th>
+          <th style="width:68px">CAP $B</th>
+          <th style="width:75px">REV YoY</th>
+          <th style="width:120px">SHARE GAIN VS SECTOR</th>
+          <th style="width:60px">P/E</th>
+          <th style="width:60px">P/B</th>
+          <th style="width:90px">SIGNAL</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <tr><td colspan="9" class="loading-state"><div class="spinner">◌</div><br>Fetching live data...</td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <div class="footer">SHARE GAIN = COMPANY REV GROWTH YoY − SECTOR MEDIAN · SORTED BY SHARE GAIN DESC · LIVE DATA VIA YAHOO FINANCE · PRIMESCREEN v1.0</div>
+</div>
+
+<script>
+let allStocks = [];
+let activeMkt = 'all';
+let distChartInst = null;
+
+function setMkt(m, el) {
+  activeMkt = m;
+  document.querySelectorAll('.mkt-btn').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  applyFilters();
+}
+
+document.getElementById('secFilter').addEventListener('change', applyFilters);
+document.getElementById('minG').addEventListener('change', applyFilters);
+document.getElementById('minS').addEventListener('change', applyFilters);
+document.getElementById('maxC').addEventListener('change', applyFilters);
+
+async function fetchAndRender() {
+  const btn = document.getElementById('runBtn');
+  btn.disabled = true;
+  btn.textContent = '⟳ LOADING...';
+  document.getElementById('errorBox').style.display = 'none';
+  document.getElementById('tbody').innerHTML = `<tr><td colspan="9" style="text-align:center;padding:50px;color:var(--muted)"><div style="font-size:24px;animation:spin 1s linear infinite;display:inline-block">◌</div><br><br>Fetching live data from Yahoo Finance...</td></tr>`;
+
+  try {
+    const res = await fetch('/api/screen');
+    if (!res.ok) throw new Error(`API error: ${res.status}`);
+    const data = await res.json();
+    allStocks = data.stocks;
+
+    // Update KPIs with summary
+    const s = data.summary;
+    document.getElementById('kTotal').textContent = s.total;
+    document.getElementById('kData').textContent = s.with_data;
+    document.getElementById('kGrowth').textContent = s.avg_rev_growth != null ? s.avg_rev_growth + '%' : '—';
+    document.getElementById('kShare').textContent = s.avg_share_gain != null ? '+' + s.avg_share_gain + 'pp' : '—';
+    document.getElementById('kStrong').textContent = s.strong_count;
+    document.getElementById('ts').textContent = new Date().toLocaleTimeString();
+
+    applyFilters();
+  } catch(e) {
+    document.getElementById('errorBox').style.display = 'block';
+    document.getElementById('errorBox').textContent = '⚠ API ERROR — Make sure backend is running on localhost:8000 — ' + e.message;
+    document.getElementById('tbody').innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--red)">Backend not reachable</td></tr>`;
+  } finally {
+    btn.disabled = false;
+    btn.textContent = '▶ REFRESH LIVE DATA';
+  }
+}
+
+function applyFilters() {
+  const sec = document.getElementById('secFilter').value;
+  const minG = parseFloat(document.getElementById('minG').value) || 0;
+  const minS = parseFloat(document.getElementById('minS').value) || -999;
+  const maxC = parseFloat(document.getElementById('maxC').value) || 999;
+
+  let data = allStocks.filter(s => {
+    if (activeMkt !== 'all' && s.market !== activeMkt) return false;
+    if (sec !== 'all' && s.sector !== sec) return false;
+    if (s.rev == null || s.rev < minG) return false;
+    if (s.gain == null || s.gain < minS) return false;
+    if (s.cap == null || s.cap > maxC) return false;
+    return true;
+  });
+
+  document.getElementById('kPassed').textContent = data.length;
+  renderSectorChart(data);
+  renderDistChart(data);
+  renderTable(data);
+}
+
+function renderSectorChart(data) {
+  const sectors = [...new Set(data.map(s => s.sector))];
+  const avgs = sectors.map(sec => {
+    const rows = data.filter(d => d.sector === sec && d.gain != null);
+    if (!rows.length) return null;
+    return +(rows.reduce((a, b) => a + b.gain, 0) / rows.length).toFixed(1);
+  }).filter(v => v !== null);
+  const labels = sectors.filter((_, i) => avgs[i] !== undefined);
+
+  const maxVal = Math.max(...avgs, 1);
+  const html = labels.map((sec, i) => {
+    const v = avgs[i];
+    const w = Math.max(Math.round((v / maxVal) * 100), 2);
+    const col = v >= 15 ? 'var(--green)' : v >= 5 ? 'var(--amber)' : 'var(--red)';
+    return `<div class="sector-row">
+      <div class="sector-name">${sec}</div>
+      <div class="sector-bar-bg"><div class="sector-bar-fill" style="width:${w}%;background:${col}"></div></div>
+      <div class="sector-val" style="color:${col}">${v >= 0 ? '+' : ''}${v}pp</div>
+    </div>`;
+  }).join('');
+  document.getElementById('sectorChart').innerHTML = html || '<div style="color:var(--muted);font-size:11px;padding:20px 0">No sector data</div>';
+}
+
+function renderDistChart(data) {
+  const strong = data.filter(s => s.signal === 'strong').length;
+  const watch = data.filter(s => s.signal === 'watch').length;
+  const pass = data.filter(s => s.signal === 'pass').length;
+  if (distChartInst) { distChartInst.destroy(); distChartInst = null; }
+  if (!data.length) return;
+  distChartInst = new Chart(document.getElementById('distChart'), {
+    type: 'bar',
+    data: {
+      labels: ['STRONG BUY', 'WATCH', 'PASS'],
+      datasets: [{ data: [strong, watch, pass], backgroundColor: ['#1D9E75', '#EF9F27', '#E24B4A'], borderRadius: 4, barThickness: 40 }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false } },
+      scales: {
+        x: { grid: { display: false }, ticks: { color: '#666660', font: { size: 9, family: 'monospace' } } },
+        y: { grid: { color: 'rgba(255,255,255,0.05)' }, ticks: { color: '#666660', font: { size: 9, family: 'monospace' }, stepSize: 1 } }
+      }
+    }
+  });
+}
+
+function renderTable(data) {
+  if (!data.length) {
+    document.getElementById('tbody').innerHTML = `<tr><td colspan="9" style="text-align:center;padding:40px;color:var(--muted);letter-spacing:1px">NO STOCKS MATCH — RELAX YOUR FILTERS</td></tr>`;
+    return;
+  }
+  const maxG = Math.max(...data.map(s => s.gain || 0), 1);
+  const rows = data.map(s => {
+    const g = s.gain;
+    const bw = g != null ? Math.max(Math.round((g / maxG) * 50), 2) : 0;
+    const bcol = g >= 15 ? '#1D9E75' : g >= 5 ? '#EF9F27' : '#E24B4A';
+    const rc = s.rev >= 30 ? 'val-up' : s.rev >= 10 ? 'val-flat' : 'val-dn';
+    const gc = g >= 10 ? 'val-up' : g >= 0 ? 'val-flat' : 'val-dn';
+    const sigLabel = s.signal === 'strong' ? 'STRONG BUY' : s.signal === 'watch' ? 'WATCH' : 'PASS';
+    const capStr = s.cap != null ? '$' + s.cap + 'B' : '<span class="na">—</span>';
+    const peStr = s.pe != null ? s.pe + 'x' : '<span class="na">—</span>';
+    const pbStr = s.pb != null ? s.pb + 'x' : '<span class="na">—</span>';
+    const revStr = s.rev != null ? `<span class="${rc}">+${s.rev}%</span>` : '<span class="na">—</span>';
+    const gainStr = g != null ? `<div class="gain-wrap"><span class="${gc}" style="min-width:40px">${g >= 0 ? '+' : ''}${g}pp</span><div class="gain-bar-bg"><div class="gain-bar-fill" style="width:${bw}px;background:${bcol}"></div></div></div>` : '<span class="na">—</span>';
+    return `<tr>
+      <td><div class="ticker">${s.ticker.replace('.WA','')}</div><div class="name-sub">${s.name}</div></td>
+      <td><span class="mkt-badge ${s.market === 'US' ? 'us' : 'pl'}">${s.market}</span></td>
+      <td style="font-size:10px;color:var(--muted)">${s.sector}</td>
+      <td>${capStr}</td>
+      <td>${revStr}</td>
+      <td>${gainStr}</td>
+      <td style="color:var(--muted)">${peStr}</td>
+      <td style="color:var(--muted)">${pbStr}</td>
+      <td><span class="sig-badge ${s.signal}">${sigLabel}</span></td>
+    </tr>`;
+  }).join('');
+  document.getElementById('tbody').innerHTML = rows;
+}
+
+fetchAndRender();
+</script>
+</body>
+</html>
