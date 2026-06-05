@@ -1,24 +1,3 @@
 #!/bin/bash
-echo ""
-echo "  ██████╗ ██████╗ ██╗███╗   ███╗███████╗███████╗ ██████╗██████╗ ███████╗███████╗███╗   ██╗"
-echo "  ██╔══██╗██╔══██╗██║████╗ ████║██╔════╝██╔════╝██╔════╝██╔══██╗██╔════╝██╔════╝████╗  ██║"
-echo "  ██████╔╝██████╔╝██║██╔████╔██║█████╗  ███████╗██║     ██████╔╝█████╗  █████╗  ██╔██╗ ██║"
-echo "  ██╔═══╝ ██╔══██╗██║██║╚██╔╝██║██╔══╝  ╚════██║██║     ██╔══██╗██╔══╝  ██╔══╝  ██║╚██╗██║"
-echo "  ██║     ██║  ██║██║██║ ╚═╝ ██║███████╗███████║╚██████╗██║  ██║███████╗███████╗██║ ╚████║"
-echo "  ╚═╝     ╚═╝  ╚═╝╚═╝╚═╝     ╚═╝╚══════╝╚══════╝ ╚═════╝╚═╝  ╚═╝╚══════╝╚══════╝╚═╝  ╚═══╝"
-echo ""
-echo "  PE GROWTH ENGINE v1.0 — US + GPW POLAND"
-echo ""
-
-cd "$(dirname "$0")/backend"
-
-echo "  [1/2] Installing dependencies..."
-pip install -r requirements.txt -q
-
-echo "  [2/2] Starting server..."
-echo ""
-echo "  ✓ Open your browser → http://localhost:8000"
-echo "  ✓ Press Ctrl+C to stop"
-echo ""
-
-python main.py
+pip install -r backend/requirements.txt
+cd backend && python3 -m uvicorn main:app --host 0.0.0.0 --port $PORT
