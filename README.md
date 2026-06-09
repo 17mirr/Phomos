@@ -1,4 +1,4 @@
-# PHOMOS — PE Growth Engine v4.2
+# PHOMOS — PE Growth Engine v4.4
 
 > **Portfolio Hedge & Optimized Momentum Oscillation Screener**  
 > Multi-market stock screener built with Python, FastAPI, and vanilla JS.
@@ -34,26 +34,32 @@ Pass        → Everything else
 ### Stock Detail Modal
 - Full valuation metrics (P/E trailing & forward, P/B, P/S, Beta, 52W high/low)
 - Growth & profitability (revenue growth, earnings growth, gross/net/operating margin, ROE, ROA)
-- Balance sheet: net cash position, total debt, free cash flow — visualized as a cash/debt bar
+- Balance sheet: net cash position, total debt, free cash flow
 - Quarterly earnings history chart (last 6 quarters, revenue + net income)
 - Company description
 
 ### AI Analysis ⚡
 - Claude-powered analysis for **Strong Buy** stocks only
-- Explains *why* the stock qualifies: revenue growth drivers, key risks, valuation assessment
+- Explains why the stock qualifies: revenue growth drivers, key risks, valuation
 - Server-side cache (1 hour) to minimize API costs
 - Triggered on demand — one click per stock
 
 ### Portfolio Sync (Trading212)
 - Connects to Trading212 live account via API
-- Displays portfolio as an interactive **donut chart** (T212 Pie-style)
+- Displays portfolio as an interactive **donut chart**
 - Shows total value, P&L, return %, position weights
 - Highlights portfolio holdings in the screener with ★
-- Credentials stored in `.env`, never exposed to frontend
+- Credentials stored in `.env`, never exposed
 
 ### Watchlist
 - Save any stock to a persistent watchlist (localStorage)
 - Card view with key metrics per position
+
+### News Tab 📰
+- Market news powered by **Alpha Vantage**
+- Ticker-specific news — click any stock from your watchlist or portfolio
+- Sentiment indicator per article
+- Auto-populates ticker buttons from your watchlist and portfolio
 
 ---
 
@@ -64,6 +70,7 @@ Pass        → Everything else
 | Backend | Python 3.12, FastAPI, yfinance, pandas |
 | Frontend | Vanilla JS, Chart.js, CSS custom properties |
 | Data | Yahoo Finance (fundamentals + live prices) |
+| News | Alpha Vantage News Sentiment API |
 | AI | Anthropic Claude API (claude-sonnet-4) |
 | Portfolio | Trading212 Public API v0 |
 | Config | python-dotenv |
@@ -74,8 +81,8 @@ Pass        → Everything else
 
 ```bash
 # 1. Clone
-git clone https://github.com/17mirr/primescreen
-cd primescreen/backend
+git clone https://github.com/17mirr/Phomos
+cd Phomos/backend
 
 # 2. Install dependencies
 pip install -r requirements.txt
@@ -84,6 +91,7 @@ pip install -r requirements.txt
 # T212_KEY=your_trading212_api_key
 # T212_SECRET=your_trading212_api_secret
 # ANTHROPIC_KEY=your_anthropic_api_key
+# NEWS_KEY=your_alphavantage_api_key
 
 # 4. Run
 python -m uvicorn main:app --reload
@@ -109,8 +117,6 @@ python -m uvicorn main:app --reload
 ## Methodology
 
 The Share Gain metric is inspired by private equity market share capture analysis. Rather than comparing absolute revenue growth figures, PHOMOS normalizes growth against the sector median — isolating companies that are genuinely outperforming peers, not just riding sector tailwinds.
-
-This approach penalizes high-growth companies in high-growth sectors (a 30% grower in a 28% median sector scores lower than a 20% grower in a 5% median sector) and rewards genuine competitive advantage.
 
 ---
 
