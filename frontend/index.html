@@ -207,6 +207,49 @@ tr.data-row:hover td { background: var(--bg3); cursor: pointer; }
 .ai-loading { font-family: var(--mono); font-size: 10px; color: var(--text3); margin-top: 10px; }
 .footer { font-family: var(--mono); font-size: 9px; color: var(--text3); padding-top: 12px; border-top: 1px solid var(--border); margin-top: 8px; }
 .error-state { background: var(--red-bg); border: 1px solid var(--red-border); border-radius: var(--radius); padding: 12px 16px; color: var(--red); margin-bottom: 16px; font-size: 12px; }
+
+/* NEWS TAB */
+.news-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px; }
+.news-card {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); padding: 14px 16px;
+  cursor: pointer; transition: border-color 0.15s;
+  display: flex; flex-direction: column; gap: 8px;
+}
+.news-card:hover { border-color: var(--border2); }
+.news-card-publisher {
+  font-family: var(--mono); font-size: 9px; color: var(--text3);
+  letter-spacing: 1px; text-transform: uppercase;
+}
+.news-card-title {
+  font-size: 13px; font-weight: 500; color: var(--text);
+  line-height: 1.45;
+}
+.news-card-time { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+.news-card-thumb {
+  width: 100%; height: 120px; object-fit: cover;
+  border-radius: 6px; margin-bottom: 4px;
+}
+.news-section-title {
+  font-family: var(--mono); font-size: 9px; color: var(--text3);
+  letter-spacing: 1px; text-transform: uppercase;
+  margin-bottom: 12px; padding-bottom: 8px;
+  border-bottom: 1px solid var(--border);
+}
+.news-ticker-filter {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 16px;
+}
+.news-ticker-btn {
+  padding: 4px 12px; border-radius: 5px;
+  font-family: var(--mono); font-size: 10px;
+  cursor: pointer; border: 1px solid var(--border2);
+  background: transparent; color: var(--text2);
+  transition: all 0.15s;
+}
+.news-ticker-btn:hover { border-color: var(--accent); color: var(--accent); }
+.news-ticker-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+.news-empty { text-align: center; padding: 48px; color: var(--text3); font-family: var(--mono); font-size: 11px; }
+
 </style>
 </head>
 <body>
@@ -229,6 +272,7 @@ tr.data-row:hover td { background: var(--bg3); cursor: pointer; }
   <button class="nav-tab active" onclick="switchTab('screener',this)">SCREENER</button>
   <button class="nav-tab" onclick="switchTab('vault',this)">WATCHLIST <span id="vaultCount" style="font-size:9px;opacity:0.6"></span></button>
   <button class="nav-tab" onclick="switchTab('portfolio',this)">PORTFOLIO ★</button>
+  <button class="nav-tab" onclick="switchTab('news',this)">NEWS</button>
 </div>
 
 <!-- SCREENER TAB -->
@@ -302,6 +346,21 @@ tr.data-row:hover td { background: var(--bg3); cursor: pointer; }
   </div>
 </div>
 
+
+<!-- NEWS TAB -->
+<div class="tab-content" id="tab-news">
+  <div class="main">
+    <div class="news-ticker-filter" id="newsTickerFilter">
+      <button class="news-ticker-btn active" onclick="loadNews('market', this)">MARKET</button>
+    </div>
+    <div class="news-section-title" id="newsSectionTitle">Market News</div>
+    <div id="newsGrid" class="news-grid">
+      <div class="news-empty">Loading news...</div>
+    </div>
+    <div class="footer">PHOMOS v4.2 · News via Yahoo Finance · Not financial advice</div>
+  </div>
+</div>
+
 <!-- MODAL -->
 <div class="modal-overlay" id="modalOverlay" onclick="closeModal(event)">
   <div class="modal" id="modalBox">
@@ -342,6 +401,7 @@ function switchTab(name, el) {
   el.classList.add('active');
   if (name === 'vault') renderVault();
   if (name === 'portfolio') loadPortfolioTab();
+  if (name === 'news') { buildNewsTickerFilter(); if (!newsLoaded) { newsLoaded = true; loadNews('market', null); } }
 }
 
 function setMkt(m, btn) {
@@ -778,6 +838,68 @@ async function loadAI(ticker) {
 // INIT
 document.getElementById('vaultCount').textContent = vault.length ? vault.length : '';
 fetchAndRender();
+
+// ===== NEWS TAB =====
+let newsLoaded = false;
+
+function timeAgo(ts) {
+  if (!ts) return '';
+  const diff = Math.floor((Date.now() / 1000) - ts);
+  if (diff < 3600) return Math.floor(diff/60) + 'm ago';
+  if (diff < 86400) return Math.floor(diff/3600) + 'h ago';
+  return Math.floor(diff/86400) + 'd ago';
+}
+
+function renderNewsCards(items) {
+  if (!items.length) return '<div class="news-empty">No news found</div>';
+  return items.map(n => `
+    <div class="news-card" onclick="window.open('${n.link}','_blank')">
+      ${n.thumbnail ? `<img class="news-card-thumb" src="${n.thumbnail}" onerror="this.style.display='none'" loading="lazy">` : ''}
+      <div class="news-card-publisher">${n.publisher || ''}</div>
+      <div class="news-card-title">${n.title}</div>
+      <div class="news-card-time">${timeAgo(n.published)}</div>
+    </div>
+  `).join('');
+}
+
+async function loadNews(ticker, btn) {
+  if (btn) {
+    document.querySelectorAll('.news-ticker-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  }
+  const grid = document.getElementById('newsGrid');
+  const title = document.getElementById('newsSectionTitle');
+  grid.innerHTML = '<div class="news-empty">Loading...</div>';
+  try {
+    let url, sectionTitle;
+    if (ticker === 'market') {
+      url = `${API}/api/market-news`;
+      sectionTitle = 'Market News';
+    } else {
+      url = `${API}/api/news/${ticker}`;
+      sectionTitle = `${ticker} News`;
+    }
+    if (title) title.textContent = sectionTitle;
+    const res = await fetch(url);
+    const d = await res.json();
+    const items = d.news || [];
+    grid.innerHTML = renderNewsCards(items);
+  } catch(e) {
+    grid.innerHTML = `<div class="news-empty">Error: ${e.message}</div>`;
+  }
+}
+
+function buildNewsTickerFilter() {
+  const filter = document.getElementById('newsTickerFilter');
+  if (!filter) return;
+  const tickers = [...new Set([...vault, ...portfolioTickers])].slice(0, 12);
+  filter.innerHTML = "<button class='news-ticker-btn active' onclick=\"loadNews('market', this)\">MARKET</button>";
+  tickers.forEach(t => {
+    const clean = t.replace(/\.(WA|L|DE|PA)$/, '');
+    filter.innerHTML += `<button class="news-ticker-btn" onclick="loadNews('${t}', this)">${clean}</button>`;
+  });
+}
+
 </script>
 </body>
 </html>
