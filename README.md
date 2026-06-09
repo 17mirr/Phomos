@@ -31,6 +31,10 @@ Pass        → Everything else
 - Sortable table with P/E, P/B, market cap, buzz score
 - Filters: market, signal, sector, min revenue growth, min share gain
 
+![PHOMOS Screener](screenshots/Screenshot%20phomos%20screener.png)
+
+---
+
 ### Stock Detail Modal
 - Full valuation metrics (P/E trailing & forward, P/B, P/S, Beta, 52W high/low)
 - Growth & profitability (revenue growth, earnings growth, gross/net/operating margin, ROE, ROA)
@@ -38,11 +42,27 @@ Pass        → Everything else
 - Quarterly earnings history chart (last 6 quarters, revenue + net income)
 - Company description
 
+![Stock Detail](screenshots/Screenshot%20company.png)
+
+---
+
 ### AI Analysis ⚡
 - Claude-powered analysis for **Strong Buy** stocks only
 - Explains why the stock qualifies: revenue growth drivers, key risks, valuation
 - Server-side cache (1 hour) to minimize API costs
 - Triggered on demand — one click per stock
+
+![AI Analysis](screenshots/Screenshot%20ai%20analysis.png)
+
+---
+
+### Watchlist
+- Save any stock to a persistent watchlist (localStorage)
+- Card view with key metrics per position
+
+![Watchlist](screenshots/Screenshot%20watchlist.png)
+
+---
 
 ### Portfolio Sync (Trading212)
 - Connects to Trading212 live account via API
@@ -51,15 +71,17 @@ Pass        → Everything else
 - Highlights portfolio holdings in the screener with ★
 - Credentials stored in `.env`, never exposed
 
-### Watchlist
-- Save any stock to a persistent watchlist (localStorage)
-- Card view with key metrics per position
+![Portfolio](screenshots/Screenshot%20portfolio.png)
+
+---
 
 ### News Tab 📰
 - Market news powered by **Alpha Vantage**
 - Ticker-specific news — click any stock from your watchlist or portfolio
 - Sentiment indicator per article
 - Auto-populates ticker buttons from your watchlist and portfolio
+
+![News](screenshots/Screenshot%20news.png)
 
 ---
 
