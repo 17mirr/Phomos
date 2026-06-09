@@ -17,8 +17,9 @@ load_dotenv()
 T212_KEY      = os.getenv("T212_KEY", "")
 T212_SECRET   = os.getenv("T212_SECRET", "")
 ANTHROPIC_KEY = os.getenv("ANTHROPIC_KEY", "")
+NEWS_KEY      = os.getenv("NEWS_KEY", "")
 
-app = FastAPI(title="PHOMOS API v4.2")
+app = FastAPI(title="PHOMOS API v4.4")
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
 # ---------- UNIVERSE ----------
@@ -172,7 +173,7 @@ async def fetch_all():
         "movers_dn": len([s for s in stocks if s.get("price_change_pct") and s["price_change_pct"] < -2]),
         "sector_medians": medians, "fetched_at": int(now),
     }
-    result = {"stocks": stocks, "summary": summary, "version": "4.2"}
+    result = {"stocks": stocks, "summary": summary, "version": "4.4"}
     _cache["data"] = result
     _cache["ts"] = now
     return result
@@ -188,7 +189,7 @@ async def screen():
 
 @app.get("/api/health")
 async def health():
-    return {"status": "ok", "version": "4.2", "universe": len(UNIVERSE)}
+    return {"status": "ok", "version": "4.4", "universe": len(UNIVERSE)}
 
 @app.get("/api/v2/stock/{ticker}")
 async def stock_detail(ticker: str):
@@ -345,6 +346,61 @@ Write sharp, direct analysis. Focus on: why revenue growth is exceptional, what 
         return {"ticker": ticker, "analysis": analysis, "cached": False}
     except Exception as e:
         return {"ticker": ticker, "error": str(e)}
+
+# ---------- NEWS ----------
+def _parse_av_news(items):
+    result = []
+    for n in items:
+        result.append({
+            "title": n.get("title", ""),
+            "publisher": n.get("source", ""),
+            "link": n.get("url", ""),
+            "published": n.get("time_published", ""),
+            "thumbnail": n.get("banner_image", "") or "",
+            "summary": (n.get("summary", "") or "")[:200],
+            "sentiment": n.get("overall_sentiment_label", ""),
+        })
+    return result
+
+@app.get("/api/news/{ticker}")
+async def get_news(ticker: str):
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                "https://www.alphavantage.co/query",
+                params={
+                    "function": "NEWS_SENTIMENT",
+                    "tickers": ticker,
+                    "apikey": NEWS_KEY,
+                    "limit": "8",
+                    "sort": "LATEST"
+                }
+            )
+        data = r.json()
+        items = data.get("feed", [])
+        return {"ticker": ticker, "news": _parse_av_news(items)}
+    except Exception as e:
+        return {"ticker": ticker, "news": [], "error": str(e)}
+
+@app.get("/api/market-news")
+async def market_news():
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            r = await client.get(
+                "https://www.alphavantage.co/query",
+                params={
+                    "function": "NEWS_SENTIMENT",
+                    "topics": "financial_markets,economy_macro",
+                    "apikey": NEWS_KEY,
+                    "limit": "20",
+                    "sort": "LATEST"
+                }
+            )
+        data = r.json()
+        items = data.get("feed", [])
+        return {"news": _parse_av_news(items)}
+    except Exception as e:
+        return {"news": [], "error": str(e)}
 
 # ---------- STATIC (LAST!) ----------
 frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
