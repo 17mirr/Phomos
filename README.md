@@ -1,13 +1,13 @@
-# PHOMOS — PE Growth Engine v4.4
+# PH◉MOS — v4.5
 
-> **Portfolio Hedge & Optimized Momentum Oscillation Screener**  
-> Multi-market stock screener built with Python, FastAPI, and vanilla JS.
+> **SEE IT ALL. FIND THE EDGE.**
+> Multi-market stock screener with an AI-powered morning brief, built with Python, FastAPI, and vanilla JS.
 
 ---
 
 ## What It Does
 
-PHOMOS screens stocks across 5 markets (US, UK, Germany, France, Poland) using a private equity-style methodology: identifying companies capturing market share from sector rivals through superior revenue growth. The screener computes a **Share Gain score** — the difference between a company's revenue growth and its sector median — and ranks stocks accordingly.
+PHOMOS screens stocks across 5 markets (US, UK, Germany, France, Poland) using a private equity-style methodology: identifying companies capturing market share from sector rivals through superior revenue growth. The screener computes a **Share Gain score** — the difference between a company's revenue growth and its sector median — and ranks stocks accordingly. On top of the screener, PHOMOS generates a personalized **AI morning brief** combining your portfolio, live market data, and news into a single daily readout.
 
 ### Core Signal Logic
 
@@ -22,6 +22,20 @@ Pass        → Everything else
 ---
 
 ## Features
+
+### Morning Brief ⚡ (new in v4.5)
+- AI-generated daily briefing — the default landing tab
+- **Portfolio Risk score** (1–10) with key risk drivers
+- **"3 Things You Should Know"** — personalized daily insights with confidence levels
+- **Market snapshot**: S&P 500, Nasdaq, VIX, Gold, Silver, BTC (live, futures-based pricing)
+- **Top Stories**: news ranked by relevance to your holdings, with "why it matters" / "why now" analysis
+- **Holdings breakdown**: per-position impact score, sentiment (Bullish/Neutral/Bearish), and AI note
+- Custom ticker input — track any list, not just your Trading212 portfolio
+- 30-minute server-side cache
+
+![Morning Brief](screenshots/Screenshot%20phomos%20brief.png)
+
+---
 
 ### Screener
 - **83 stocks** across US (NYSE/NASDAQ), UK (LSE), Germany (XETRA), France (Euronext), Poland (GPW)
@@ -46,7 +60,7 @@ Pass        → Everything else
 
 ---
 
-### AI Analysis ⚡
+### AI Analysis
 - Claude-powered analysis for **Strong Buy** stocks only
 - Explains why the stock qualifies: revenue growth drivers, key risks, valuation
 - Server-side cache (1 hour) to minimize API costs
@@ -91,7 +105,7 @@ Pass        → Everything else
 |-------|-----------|
 | Backend | Python 3.12, FastAPI, yfinance, pandas |
 | Frontend | Vanilla JS, Chart.js, CSS custom properties |
-| Data | Yahoo Finance (fundamentals + live prices) |
+| Data | Yahoo Finance (fundamentals, live prices, gold/silver futures) |
 | News | Alpha Vantage News Sentiment API |
 | AI | Anthropic Claude API (claude-sonnet-4) |
 | Portfolio | Trading212 Public API v0 |
