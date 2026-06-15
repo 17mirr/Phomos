@@ -1,4 +1,5 @@
 import yfinance as yf
+import json
 import pandas as pd
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -153,7 +154,7 @@ async def fetch_all():
     now = time.time()
     if _cache["data"] and (now - _cache["ts"]) < CACHE_TTL:
         return _cache["data"]
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     fund_raw, live_raw = await asyncio.gather(
         asyncio.gather(*[loop.run_in_executor(executor, fetch_fundamentals, i) for i in UNIVERSE]),
         asyncio.gather(*[loop.run_in_executor(executor, fetch_live_price, i["ticker"]) for i in UNIVERSE])
@@ -246,7 +247,7 @@ async def stock_detail(ticker: str):
             }
         except Exception as e:
             return {"ticker": ticker, "error": str(e)}
-    return await asyncio.get_event_loop().run_in_executor(executor, _fetch)
+    return await asyncio.get_running_loop().run_in_executor(executor, _fetch)
 
 # ---------- TRADING212 PORTFOLIO ----------
 T212_MAP = {
@@ -313,7 +314,7 @@ async def ai_analysis(ticker: str):
             }
         except: return None
 
-    loop = asyncio.get_event_loop()
+    loop = asyncio.get_running_loop()
     data = await loop.run_in_executor(executor, _get_data)
     if not data:
         return {"ticker": ticker, "error": "Could not fetch stock data"}
@@ -404,8 +405,220 @@ async def market_news():
 
 # ---------- STATIC (LAST!) ----------
 frontend_path = os.path.join(os.path.dirname(__file__), "..", "frontend")
+
+# ---------- MORNING BRIEF ----------
+_brief_cache = {}
+BRIEF_CACHE_TTL = 1800  # 30 min
+
+@app.get("/api/morning-brief")
+async def morning_brief(tickers: str = ""):
+    """
+    tickers: comma-separated list e.g. "AAPL,AMD,ASML"
+    If empty, tries to use portfolio tickers from T212.
+    """
+    cache_key = tickers or "portfolio"
+    now = time.time()
+    if cache_key in _brief_cache and (now - _brief_cache[cache_key]["ts"]) < BRIEF_CACHE_TTL:
+        return _brief_cache[cache_key]["data"]
+
+    # 1. Resolve tickers
+    watch = [t.strip().upper() for t in tickers.split(",") if t.strip()] if tickers else []
+    if not watch:
+        # try portfolio
+        try:
+            cred = base64.b64encode(f"{T212_KEY}:{T212_SECRET}".encode()).decode()
+            async with httpx.AsyncClient(timeout=8) as client:
+                r = await client.get(
+                    "https://live.trading212.com/api/v0/equity/positions",
+                    headers={"Authorization": f"Basic {cred}"}
+                )
+            if r.status_code == 200:
+                positions = r.json()
+                watch = list({
+                    T212_MAP.get(p["instrument"]["ticker"],
+                    p["instrument"]["ticker"].replace("_US_EQ","").replace("_EQ",""))
+                    for p in positions
+                })[:8]
+        except:
+            pass
+
+    if not watch:
+        watch = ["SPY", "QQQ", "AMD", "NVDA"]
+
+    # 2. Fetch market data
+    def _fetch_market():
+        results = {}
+        for sym, yf_sym in [("SP500","^GSPC"),("NASDAQ","^IXIC"),("VIX","^VIX"),
+                             ("GOLD","GC=F"),("SILVER","SI=F"),("BTC","BTC-USD")]:
+            try:
+                tk = yf.Ticker(yf_sym)
+                hist = tk.history(period="2d")
+                if len(hist) >= 2:
+                    prev = hist["Close"].iloc[-2]
+                    curr = hist["Close"].iloc[-1]
+                    chg = round((curr - prev) / prev * 100, 2)
+                    results[sym] = {"price": round(curr, 2), "change_pct": chg}
+                elif len(hist) == 1:
+                    results[sym] = {"price": round(hist["Close"].iloc[-1], 2), "change_pct": 0}
+            except:
+                results[sym] = {"price": None, "change_pct": None}
+        # sanitize NaN
+        for k in results:
+            p = results[k].get("price")
+            c = results[k].get("change_pct")
+            import math
+            results[k]["price"] = None if (p is None or (isinstance(p, float) and math.isnan(p))) else float(p)
+            results[k]["change_pct"] = None if (c is None or (isinstance(c, float) and math.isnan(c))) else round(float(c), 2)
+        return results
+
+    # 3. Fetch news for tickers
+    async def _fetch_news_for_tickers(tlist):
+        all_news = []
+        try:
+            async with httpx.AsyncClient(timeout=10) as client:
+                # market news
+                r = await client.get(
+                    "https://www.alphavantage.co/query",
+                    params={
+                        "function": "NEWS_SENTIMENT",
+                        "topics": "financial_markets,economy_macro,earnings",
+                        "apikey": NEWS_KEY,
+                        "limit": "15",
+                        "sort": "RELEVANCE_SCORE"
+                    }
+                )
+                mkt_data = r.json()
+                for n in mkt_data.get("feed", [])[:8]:
+                    all_news.append({
+                        "title": n.get("title",""),
+                        "source": n.get("source",""),
+                        "summary": (n.get("summary","") or "")[:300],
+                        "sentiment": n.get("overall_sentiment_label",""),
+                        "tickers_mentioned": [t["ticker"] for t in n.get("ticker_sentiment",[])],
+                        "time": n.get("time_published",""),
+                        "url": n.get("url",""),
+                        "thumbnail": n.get("banner_image","") or "",
+                    })
+        except:
+            pass
+        return all_news
+
+    loop = asyncio.get_running_loop()
+    market_data = await loop.run_in_executor(executor, _fetch_market)
+    news_items = await _fetch_news_for_tickers(watch)
+
+    # 4. Claude generates the brief
+    ticker_list = ", ".join(watch)
+    news_text = "\n".join([
+        f"- [{n['source']}] {n['title']} (sentiment: {n['sentiment']})\n  Summary: {n['summary'][:200]}"
+        for n in news_items[:8]
+    ])
+
+    market_text = ""
+    for k, v in market_data.items():
+        if v["price"]:
+            market_text += f"{k}: {v['price']} ({'+' if v['change_pct'] and v['change_pct']>0 else ''}{v['change_pct']}%)\n"
+
+    prompt = f"""You are an institutional equity research analyst generating a personalized morning brief.
+
+User's portfolio/watchlist: {ticker_list}
+
+Market snapshot:
+{market_text}
+
+Today's top news:
+{news_text}
+
+Generate a JSON response with this exact structure:
+{{
+  "three_things": [
+    {{"text": "concise insight 1 relevant to the user's holdings", "confidence": "High|Medium|Low"}},
+    {{"text": "concise insight 2", "confidence": "High|Medium|Low"}},
+    {{"text": "concise insight 3", "confidence": "High|Medium|Low"}}
+  ],
+  "portfolio_risk": {{
+    "score": <integer 1-10>,
+    "level": "Low|Medium|High",
+    "drivers": ["driver 1", "driver 2", "driver 3"]
+  }},
+  "top_stories": [
+    {{
+      "title": "news headline",
+      "source": "source name",
+      "why_it_matters": "1-2 sentences on relevance to user portfolio",
+      "why_now": "1 sentence on why timing matters today",
+      "affected_tickers": ["TICK1", "TICK2"]
+    }}
+  ],
+  "holdings": [
+    {{
+      "ticker": "TICK",
+      "impact_score": <integer 1-10>,
+      "sentiment": "Bullish|Neutral|Bearish",
+      "sentiment_confidence": <integer 50-95>,
+      "reason": "short phrase explaining today's move",
+      "ai_note": "Thesis unchanged.|Elevated volatility expected.|Positive catalyst.|No action required.|Monitor closely."
+    }}
+  ]
+}}
+
+Rules:
+- three_things must be personalized to this user's specific tickers
+- portfolio_risk score reflects today's macro + holding-specific risk
+- top_stories: max 3, only include if genuinely relevant to user holdings
+- holdings: include all tickers from the watchlist
+- Be concise and direct. No fluff. Institutional tone.
+- Return ONLY valid JSON, no markdown, no preamble."""
+
+    try:
+        async with httpx.AsyncClient(timeout=45) as client:
+            r = await client.post(
+                "https://api.anthropic.com/v1/messages",
+                headers={
+                    "Content-Type": "application/json",
+                    "x-api-key": ANTHROPIC_KEY,
+                    "anthropic-version": "2023-06-01"
+                },
+                json={
+                    "model": "claude-sonnet-4-20250514",
+                    "max_tokens": 1500,
+                    "messages": [{"role": "user", "content": prompt}]
+                }
+            )
+        raw = r.json()["content"][0]["text"]
+        # strip possible markdown fences
+        raw = raw.strip()
+        if raw.startswith("```"):
+            raw = raw.split("```")[1]
+            if raw.startswith("json"):
+                raw = raw[4:]
+        brief_data = json.loads(raw.strip())
+    except Exception as e:
+        brief_data = {
+            "three_things": [
+                {"text": "Market data loaded. AI analysis unavailable — check API key.", "confidence": "Low"}
+            ],
+            "portfolio_risk": {"score": 5, "level": "Medium", "drivers": ["AI unavailable"]},
+            "top_stories": [],
+            "holdings": [{"ticker": t, "impact_score": 5, "sentiment": "Neutral",
+                          "sentiment_confidence": 50, "reason": "No data", "ai_note": "AI unavailable."} for t in watch]
+        }
+
+    result = {
+        "tickers": watch,
+        "market": market_data,
+        "news_raw": news_items[:3],
+        "brief": brief_data,
+        "generated_at": int(now)
+    }
+
+    _brief_cache[cache_key] = {"data": result, "ts": now}
+    return result
+
+# ---------- STATIC (LAST!) ----------
 app.mount("/", StaticFiles(directory=frontend_path, html=True), name="frontend")
 
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run("main:app", host="0.0.0.0", port=8000, reload=True)
+
