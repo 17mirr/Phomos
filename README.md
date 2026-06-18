@@ -7,7 +7,7 @@
 
 ## What It Does
 
-PHOMOS screens stocks across 5 markets (US, UK, Germany, France, Poland) using a private equity-style methodology: identifying companies capturing market share from sector rivals through superior revenue growth. The screener computes a **Share Gain score** — the difference between a company's revenue growth and its sector median — and ranks stocks accordingly. On top of the screener, PHOMOS generates a personalized **AI morning brief** combining your portfolio, live market data, and news into a single daily readout.
+PHOMOS screens stocks across 5 markets (US, UK, Germany, France, Poland) using a hedge-fund-style methodology: identifying companies capturing market share from sector rivals through superior revenue growth. The screener computes a **Share Gain score** — the difference between a company's revenue growth and its sector median — and ranks stocks accordingly. On top of the screener, PHOMOS generates a personalized **AI morning brief** combining your portfolio, live market data, and news into a single daily readout.
 
 ### Core Signal Logic
 
@@ -152,13 +152,7 @@ python -m uvicorn main:app --reload
 
 ## Methodology
 
-The Share Gain metric is inspired by private equity market share capture analysis. Rather than comparing absolute revenue growth figures, PHOMOS normalizes growth against the sector median — isolating companies that are genuinely outperforming peers, not just riding sector tailwinds.
-
----
-
-## Related Research
-
-This project accompanies original macro research on the **Liquidity Absorption Ratio (LAR)** — a novel market valuation indicator measuring the proportion of global M2 money supply absorbed by US equity market capitalisation, with historical convergence observed at five major crisis inflection points (1929, 1932, 2000, 2008, 2019).
+The Share Gain metric is inspired by hedge-fund-style market share capture analysis. Rather than comparing absolute revenue growth figures, PHOMOS normalizes growth against the sector median — isolating companies that are genuinely outperforming peers, not just riding sector tailwinds.
 
 ---
 
